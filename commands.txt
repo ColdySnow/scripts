@@ -1,0 +1,166 @@
+################################################
+######## Christin's commands ###################
+################################################
+
+
+########## General commands #############
+
+#New Session
+tmux new -s stuff
+#List running sessions
+tmux list-sessions
+#Join a session
+tmux attach -t stuff
+
+#IN TMUX:
+#Close tab
+Str + D
+#Open new tab
+Str + B | C
+#Open different tab
+Str + B | 0/1 
+#Rename tab
+Str + B | ,
+#Close Tmux
+exit
+
+
+
+
+########## Mapping ##########
+
+#Reads mapping (f.e. with STAR)
+#Tools for edit mapping (f.e. samtools)
+
+-> f.e. /acontzen/Scratch/tutorial/mapping.sh
+
+~/Software/tools/minimap2-2.17_x64-linux/minimap2 -ax map-pb fasta-FILE fastq-FILE > FILE-NAME.sam
+
+samtools view -@ 24 -bS -F 4 FILE.sam -o FILE.bam
+samtools sort -@ 24 FILE.bam -o FILE.bam
+samtools index FILE.sorted.bam
+
+
+
+#merge alternative contigs
+cat old-FILE new-FILE > OUTFILE
+
+
+#Masking
+~/Software/tools/usearch11.0.667_i86linux32 -fastx_mask FASTQ-IN -fastqout FASTQ-OUT -qmask dust -threads 20
+-> f.e. ~/Software/tools/usearch11.0.667_i86linux32 -fastx_mask Ppr_pb_subs05x.fastq -fastqout Ppr_pb_subs05x.comb.masked.fastq -qmask dust -threads 20
+
+
+
+########## Tandem Repeat Finder ##########
+
+#TRF
+~/Software/Repeats/trf409.linux64 ~/Scratch/acontzen/genome_v0.2_cc/final.p_ctg.purged.masked.fasta 2 7 7 80 10 50 500 -h
+
+
+####Filtering after TRF#### 
+cat INPUT-FASTA.dat | awk '{if(($3>=30)&&($4>=5))print$14}' | sort | awk '{if($1!=last)print($1);last=$1;}' > FILTERED-OUTPUT 
+#filtering after strings that are over 30 nucleotides long and that are repeated min. 5 times. #Output-File: list of monomere sequences of the filtered repeats 
+cat INPUT-FILTERED | sed '0~1 s/$/\n>string/g' > FILTERED2-OUTPUT
+#names the different sequences "string" #Output-File: list of monomer sequences of the filtered repeats, all called string in line before.
+cat INPUT-FILTERED2 | awk '/^>/ { printf("%s_%s\n",$0,i++);next;} { print $0;}' > FILTERED2.fasta
+#numbers the strings from small to large #Oput-File: list of monomer sequences of the filtered repeats, having all an individual string-name. IMPORTANT: first monomer sequence/string you have to name manually!!
+cat INPUT-FILTERED2.fasta | sed '$d' > FILTERED3-OUTPUT.fasta
+#delete last "empty" line #Outpuf-File: list of monomer sequences of the filtered repeats, having all an individual string-name
+
+
+
+########## BLAST ##########
+
+makeblastdb -in QUERY-FILE (f.e. genome) -dbtype nucl -out OUTPUT-NAME
+-> f.e. makeblastdb -in ../../genome_v0.2_cc/final.p_ctg.purged.fasta -dbtype nucl -out ./Ppr_genome_read_comb
+
+blastn -task blastn -query QUERY-FILE (f.e. gebine) -db READ-FILE -evalue 1e-6 -outfmt 6 -out OUTPUT-NAME -num_threads 30
+-> f.e. blastn -task blastn -query ~/Scratch/acontzen/trf/trf_genome_read_combined/trf.filtered3.fasta -db ./Ppr_genome_read_comb -evalue 1e-6 -outfmt 6 -out blast_genome_read_comb -num_threads 30
+
+
+####Filtering after BLAST####
+cat blast_genome_read_comb | awk '{if(($3>=98))print$0}' | sort > filtered_identity98 
+#filtering only results with an identity over 98 percent #Output-File: whole table with all strings over 98 percent identity, containing all information about these 
+cat filtered_identity98 | gawk '{sum[$1] += $4; N[$1]++ } END { for (key in sum) {summed = sum[key];printf "%s %d\n", key, summed; } }' | sort > filtered_identity98_2
+#lists all strings just once and sum in case of the same strings the lengths #Output-File: lists all strings and their whole length (sum together in case of same strings)
+cat filtered_identity98_2 | awk '{printf "%s %.10f\n", $0, $2/230241000}' > filtered_identity98_3
+#adds new line, how many percent of the genome the respective string presents #Output-File: lists all strings and their entire length, as well as how much of the genome it represents
+
+
+
+########## Filtering Top Ranking ##########
+
+####Creating top10/top100####
+cat filtered_identity100 | gawk '{sum[$1] += $4; N[$1]++ } END { for (key in sum) {summed = sum[key];printf "%s %d\n", key, summed; } }' | sort -k2nr | head -n10 > filtered10_2
+#lists top 10 of top 100 identity (Filtering after BLAST) strings just once and sum in case of the same strings the lengths #Output-File: table of top10 strings with their entire length
+cut -d " " -f 1 filtered10_2 > filtered10_3
+#cuts out information about length #Output-File: Top10 of the most abundant strings/repeats
+cat blast_genome_read_comb | grep -f filtered100_3 > end_file
+#filters BLAST-Output (all repeats) for top100 most abundant repeats #Output-File: Table for the top100 most abundant repeats/strings, containing all information about these
+cat blast_genome_read_comb | grep -f filtered10_3 > end_file10
+#filters BLAST-Output (all repeats) for top10 most abundant repeats #Output-File: Table for the top10 most abundant repeats/strings, containing all information about these
+cat end_file10 | awk '{if(($3>=100))print$0}' | sort > end_file10_2
+#filteres endfile for only repeats with 100 percent identity #Output-File: Table for the top10 most abundant repeats/strings with 100 percent idendity, containing all information about these
+
+
+
+########## Searching monomer sequence ##########
+
+#search strings for strings of suspicious regions found in Tablet
+cat filtered_identity98_forward.sorted | grep "chr_NUMBER" -w | less
+#search for strings where else to find them (f.e. top10)
+cat filtered_identity98_forward.sorted | grep "string_NUMBER" -w | less
+#find out exact monomer sequences
+cat repeat_library
+-> f.e. cat trf.filtered3.fasta
+
+
+
+
+
+ ____________________________________________________________________________________________________________________________________________________________
+|                                                                                                                                                           |
+|########## IPA Assembly ##########                                                                                                                         |
+|                                                                                                                                                           |
+|#Activate IPA                                                                                                                                              |
+|conda activate ipa                                                                                                                                         |
+|                                                                                                                                                           |
+|#Subsample Read                                                                                                                                            |
+|-select reformat.sh in=original read out=subsample read samplerate=(wath you want) ignorebadquality                                                        |
+|-> f.e.  ~/Software/tools/bbmap/reformat.sh in=/RAID/Data/mites/reads/PacBio/Ppr_pb_comb.fastq out=./Ppr_pb_subs40x.fastq samplerate=0.5 ignorebadquality  |
+|                                                                                                                                                           |
+|#Run Assembly                                                                                                                                              |
+|-ipa local --nthreads number --njobs numer --run-dir save-place -i save-name                                                                               |
+|-ipa local --nthreads 20 --njobs 2 --run-dir ./ipa/ -i ../Ppr_pb_subs40x.fastq                                                                             |
+|                                                                                                                                                           |
+|#Check assembly stats                                                                                                                                      |
+|/home/acontzen/Software/tools/bbmap/bbstats.sh                                                                                                             |
+|___________________________________________________________________________________________________________________________________________________________|
+
+
+ ______________________________________________________________________________________________________________________________
+|                                                                                                                              |
+|########## KAT Analysis ##########                                                                                            |
+|                                                                                                                              |
+|#Activate Kat                                                                                                                 |
+|conda create -n kat                                                                                                           |
+|conda activate kat                                                                                                            |
+|                                                                                                                              |
+|#Run Kat                                                                                                                      |
+|kat comp -t 40 -o Ppr_PBall_vs_assembly /directory-to fastq-data /directory-to-matching final.p_ctg.fasta                     |
+|-> f.e.  kat comp -t 40 -o Ppr_PBall_vs_assembly /home/acontzen/Data/mites/reads/PacBio/Ppr_pb_comb.fastq final.p_ctg.fasta   |
+|______________________________________________________________________________________________________________________________|
+
+#load png on local server
+(on loval server)
+scp username@workstation:directory-to-png /directory-to-local-saving-point
+-> f.e.   scp acontzen@bast-work-1.zoologie.uni-koeln.de:/home/acontzen/Scratch/acontzen/assembly/ipa80x/assembly-results/Ppr_PBall_vs_assembly-main.mx.spectra-cn.png /c/Users/col$
+
+
+########## ust10x ##########
+
+#ust10
+/home/shangao/Software/TELLSeq/conversion_tool/ust10x -i1 /home/shangao/Data/gaoshan/test/Ppr_0_I1_T502.fastq.gz -r1 /home/shangao/Data/gaoshan/test/Ppr_0_R1_T502.fastq.gz -r2 /home/shangao/Data/gaoshan/test/Ppr_0_R2_T502.fastq.gz -wl /home/jbast/Software/TELLSeq/conversion_tool/4M-with-alts-february-2016.txt
+mv R1_sl.fastq.gz.4tenx.fastq.gz Ppr0_S1_L001_R1_001.fastq.gz
+mv R2_sl.fastq.gz.4tenx.fastq.gz Ppr0_S1_L001_R2_001.fastq.gz
